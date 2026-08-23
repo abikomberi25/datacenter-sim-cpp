@@ -1,0 +1,20 @@
+﻿prometheus_url: http://localhost:9090
+
+sampling:
+  interval_seconds: 5
+
+rate_window_seconds: 15
+
+network:
+  preferred_interface: auto
+  fallback_to_container: true
+  node_exporter_mode: bridge
+
+sla:
+  p95_latency_ms: 500
+  error_rate_pct: 1.0
+  cpu_pct: 80.0
+  memory_pct: 90.0
+
+report:
+  title: Data Center Simulation Performance Analysis
