@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Center Simulation Performance Report - NORMAL_DAY</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 30px 20px;
+            line-height: 1.5;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            margin: 0 0 8px 0;
+            font-size: 26px;
+            color: #0f172a;
+        }
+        .header .subtitle {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        .banner {
+            padding: 16px 20px;
+            border-radius: 8px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .badge-pass { background: linear-gradient(135deg, #10b981, #059669); }
+        .badge-fail { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .badge-unknown { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 22px;
+            margin-bottom: 25px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        }
+        .card h2 {
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: #0f172a;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+        .meta-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .meta-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 14px;
+        }
+        .meta-list li:last-child { border-bottom: none; }
+        .meta-label { color: var(--text-muted); font-weight: 500; }
+        .meta-val { font-weight: 600; color: #1e293b; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            text-align: left;
+        }
+        th, td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+        }
+        tr:hover { background-color: #f8fafc; }
+        .pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-pass, .sev-info { background-color: #d1fae5; color: #065f46; }
+        .status-fail, .sev-critical { background-color: #fee2e2; color: #991b1b; }
+        .status-unknown { background-color: #fef3c7; color: #92400e; }
+        .pill-muted { background-color: #f1f5f9; color: #475569; }
+        .badge-source {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .conclusion-box {
+            background: #f1f5f9;
+            border-left: 4px solid var(--primary);
+            padding: 14px 18px;
+            border-radius: 0 6px 6px 0;
+            font-size: 14.5px;
+            margin-bottom: 15px;
+        }
+        .evidence-list {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 14px;
+            color: #334155;
+        }
+        .evidence-list li { margin-bottom: 6px; }
+        .chart-container {
+            text-align: center;
+            margin-top: 15px;
+        }
+        .chart-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+        code {
+            background-color: #f1f5f9;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+        }
+        .text-danger { color: var(--danger); font-weight: bold; }
+        .text-success { color: var(--success); font-weight: bold; }
+        .text-muted { color: var(--text-muted); }
+        .text-nowrap { white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>DATA CENTER SIMULATION PERFORMANCE REPORT</h1>
+            <div class="subtitle">Profile: <strong>NORMAL_DAY</strong> | Generated at 2026-08-23 19:49:31</div>
+        </div>
+
+        <!-- Overall SLA Banner -->
+        <div class="banner badge-fail">
+            <div>OVERALL SLA VERDICT: FAIL</div>
+            <div style="font-size: 14px; font-weight: 500;">3 of 4 SLA Targets Satisfied</div>
+        </div>
+
+        <!-- Executive Summary Grid -->
+        <div class="grid-2">
+            <div class="card">
+                <h2>1. Experiment Overview</h2>
+                <ul class="meta-list">
+                    <li><span class="meta-label">Workload Profile</span><span class="meta-val">normal_day</span></li>
+                    <li><span class="meta-label">Execution Duration</span><span class="meta-val">600.0 seconds</span></li>
+                    <li><span class="meta-label">Start Time (T1)</span><span class="meta-val">1787494167.0858684</span></li>
+                    <li><span class="meta-label">End Time (T2)</span><span class="meta-val">1787494767.0858684</span></li>
+                    <li><span class="meta-label">Total Requests</span><span class="meta-val">8275</span></li>
+                    <li><span class="meta-label">Watchdog Crashes</span><span class="meta-val">0</span></li>
+                    <li><span class="meta-label">Primary Bottleneck</span><span class="meta-val">None</span></li>
+                    <li><span class="meta-label">Statistical Confidence</span><span class="meta-val">HIGH</span></li>
+                    <li><span class="meta-label">Failure Classification</span><span class="meta-val">SLA_NON_COMPLIANCE, HTTP_REQUEST_FAILURES</span></li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h2>2. Executive Conclusion & Findings</h2>
+                <div class="conclusion-box">
+                    The experiment executed 8275 requests with overall SLA status 'FAIL' (3/4 checks satisfied). No container crashes or service interruptions were detected by the watchdog. Primary bottleneck assessed as 'None' (Confidence: HIGH).
+                </div>
+                <h3 style="font-size: 14px; margin: 12px 0 8px 0; color: #475569;">Key Observations & Evidence:</h3>
+                <ul class="evidence-list">
+                    <li>CPU SLA breach: peak 82.37% exceeded threshold 80.0%.</li><li>All measured system and load parameters remained within safe thresholds.</li><li>Locust recorded 83 failed requests (1.0% error rate).</li><li>Failure on POST /login: HTTPError('429 Client Error: Too Many Requests for url: /login') (80 occurrences)</li><li>Failure on GET /health: RemoteDisconnected('Remote end closed connection without response') (2 occurrences)</li><li>Failure on GET /me: RemoteDisconnected('Remote end closed connection without response') (1 occurrences)</li><li>SLA Target Violated: Peak CPU Utilization: measured 82.37 % exceeds limit 80.0 %</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- SLA Scorecard Table -->
+        <div class="card">
+            <h2>3. Service Level Agreement (SLA) Scorecard</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric Target</th>
+                        <th>Measured Value</th>
+                        <th>Threshold Limit</th>
+                        <th>Margin</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+            <tr>
+                <td><strong>P95 Response Time</strong></td>
+                <td>110.0 ms</td>
+                <td>500.0 ms</td>
+                <td>390.0 ms</td>
+                <td><span class="pill status-pass">PASS</span></td>
+            </tr>
+            
+            <tr>
+                <td><strong>Error Rate</strong></td>
+                <td>1.0 %</td>
+                <td>1.0 %</td>
+                <td>0.0 %</td>
+                <td><span class="pill status-pass">PASS</span></td>
+            </tr>
+            
+            <tr>
+                <td><strong>Peak CPU Utilization</strong></td>
+                <td>82.37 %</td>
+                <td>80.0 %</td>
+                <td>-2.37 %</td>
+                <td><span class="pill status-fail">FAIL</span></td>
+            </tr>
+            
+            <tr>
+                <td><strong>Peak Memory Utilization</strong></td>
+                <td>18.95 %</td>
+                <td>90.0 %</td>
+                <td>71.05 %</td>
+                <td><span class="pill status-pass">PASS</span></td>
+            </tr>
+            
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Visual Charts Section -->
+        
+        <div class="card">
+            <h2>4. Hardware & System Dynamics Over Time</h2>
+            <div class="chart-container">
+                <img class="chart-img" src="normal_day_20260823_193927_system_metrics.png" alt="System Resource Metrics Chart">
+            </div>
+        </div>
+        
+
+        
+        <div class="card">
+            <h2>5. Locust Workload, RPS & Latency Progression</h2>
+            <div class="chart-container">
+                <img class="chart-img" src="normal_day_20260823_193927_locust_performance.png" alt="Locust Performance Chart">
+            </div>
+        </div>
+        
+
+        <!-- HTTP Endpoint Breakdown Table -->
+        <div class="card">
+            <h2>6. HTTP Endpoint Breakdown</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>HTTP Endpoint</th>
+                        <th>Requests</th>
+                        <th>Failures (Rate %)</th>
+                        <th>Avg Latency</th>
+                        <th>P95 Latency</th>
+                        <th>P99 Latency</th>
+                        <th>Throughput (RPS)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+            <tr>
+                <td><code>GET /api/data</code></td>
+                <td>2621</td>
+                <td><span class="text-success">0 (0.0%)</span></td>
+                <td>75.61 ms</td>
+                <td><strong>120.0 ms</strong></td>
+                <td>170.0 ms</td>
+                <td>6.24</td>
+            </tr>
+            
+            <tr>
+                <td><code>GET /health</code></td>
+                <td>3483</td>
+                <td><span class="text-danger">2 (0.06%)</span></td>
+                <td>13.64 ms</td>
+                <td><strong>31.0 ms</strong></td>
+                <td>73.0 ms</td>
+                <td>8.29</td>
+            </tr>
+            
+            <tr>
+                <td><code>POST /login</code></td>
+                <td>100</td>
+                <td><span class="text-danger">80 (80.0%)</span></td>
+                <td>1106.68 ms</td>
+                <td><strong>4400.0 ms</strong></td>
+                <td>5000.0 ms</td>
+                <td>0.24</td>
+            </tr>
+            
+            <tr>
+                <td><code>POST /logout</code></td>
+                <td>19</td>
+                <td><span class="text-success">0 (0.0%)</span></td>
+                <td>29.79 ms</td>
+                <td><strong>190.0 ms</strong></td>
+                <td>190.0 ms</td>
+                <td>0.05</td>
+            </tr>
+            
+            <tr>
+                <td><code>GET /me</code></td>
+                <td>1664</td>
+                <td><span class="text-danger">1 (0.06%)</span></td>
+                <td>21.51 ms</td>
+                <td><strong>33.0 ms</strong></td>
+                <td>100.0 ms</td>
+                <td>3.96</td>
+            </tr>
+            
+            <tr>
+                <td><code>POST /profile/update</code></td>
+                <td>388</td>
+                <td><span class="text-success">0 (0.0%)</span></td>
+                <td>91.15 ms</td>
+                <td><strong>110.0 ms</strong></td>
+                <td>1300.0 ms</td>
+                <td>0.92</td>
+            </tr>
+            
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Event Timeline Table -->
+        <div class="card">
+            <h2>7. Chronological Event Timeline</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Event Source & Type</th>
+                        <th>Category</th>
+                        <th>Severity</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+            <tr>
+                <td class="text-nowrap">18:26:21</td>
+                <td><span class="badge-source">LOCUST</span> <strong>LOAD_STARTED</strong></td>
+                <td><span class="pill pill-muted">OBSERVED</span></td>
+                <td><span class="pill sev-info">INFO</span></td>
+                <td>Workload generation began with 0 users</td>
+            </tr>
+            
+            <tr>
+                <td class="text-nowrap">18:26:40</td>
+                <td><span class="badge-source">LOCUST</span> <strong>LOCUST_PEAK_USERS</strong></td>
+                <td><span class="pill pill-muted">OBSERVED</span></td>
+                <td><span class="pill sev-info">INFO</span></td>
+                <td>Locust concurrency reached peak of 100 active users</td>
+            </tr>
+            
+            <tr>
+                <td class="text-nowrap">18:26:45</td>
+                <td><span class="badge-source">LOCUST</span> <strong>LOCUST_PEAK_RPS</strong></td>
+                <td><span class="pill pill-muted">OBSERVED</span></td>
+                <td><span class="pill sev-info">INFO</span></td>
+                <td>Locust throughput reached peak of 26.3 req/s</td>
+            </tr>
+            
+            <tr>
+                <td class="text-nowrap">19:39:27</td>
+                <td><span class="badge-source">RUNNER</span> <strong>EXPERIMENT_START</strong></td>
+                <td><span class="pill pill-muted">OBSERVED</span></td>
+                <td><span class="pill sev-info">INFO</span></td>
+                <td>Experiment started at T1 (1787494167.0858684)</td>
+            </tr>
+            
+            <tr>
+                <td class="text-nowrap">19:39:57</td>
+                <td><span class="badge-source">PROMETHEUS</span> <strong>PROMETHEUS_CPU_PEAK</strong></td>
+                <td><span class="pill pill-muted">OBSERVED</span></td>
+                <td><span class="pill sev-critical">WARNING</span></td>
+                <td>CPU utilization peaked at 82.37%</td>
+            </tr>
+            
+            <tr>
+                <td class="text-nowrap">19:39:57</td>
+                <td><span class="badge-source">SLA_ENGINE</span> <strong>SLA_BREACH_DETECTED</strong></td>
+                <td><span class="pill pill-muted">INFERRED</span></td>
+                <td><span class="pill sev-critical">CRITICAL</span></td>
+                <td>SLA Target Breached: Peak CPU Utilization was 82.37 % (Limit: 80.0 %)</td>
+            </tr>
+            
+            <tr>
+                <td class="text-nowrap">19:41:22</td>
+                <td><span class="badge-source">PROMETHEUS</span> <strong>PROMETHEUS_MEMORY_PEAK</strong></td>
+                <td><span class="pill pill-muted">OBSERVED</span></td>
+                <td><span class="pill sev-info">INFO</span></td>
+                <td>Memory utilization peaked at 18.95%</td>
+            </tr>
+            
+            <tr>
+                <td class="text-nowrap">19:42:52</td>
+                <td><span class="badge-source">PROMETHEUS</span> <strong>NETWORK_PEAK_RX</strong></td>
+                <td><span class="pill pill-muted">OBSERVED</span></td>
+                <td><span class="pill sev-info">INFO</span></td>
+                <td>Network receive rate peaked at 0.0 MiB/s on eth0</td>
+            </tr>
+            
+            <tr>
+                <td class="text-nowrap">19:46:47</td>
+                <td><span class="badge-source">PROMETHEUS</span> <strong>NETWORK_PEAK_TX</strong></td>
+                <td><span class="pill pill-muted">OBSERVED</span></td>
+                <td><span class="pill sev-info">INFO</span></td>
+                <td>Network transmit rate peaked at 0.0 MiB/s on eth0</td>
+            </tr>
+            
+            <tr>
+                <td class="text-nowrap">19:49:27</td>
+                <td><span class="badge-source">RUNNER</span> <strong>EXPERIMENT_END</strong></td>
+                <td><span class="pill pill-muted">OBSERVED</span></td>
+                <td><span class="pill sev-info">INFO</span></td>
+                <td>Experiment completed at T2 (1787494767.0858684)</td>
+            </tr>
+            
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

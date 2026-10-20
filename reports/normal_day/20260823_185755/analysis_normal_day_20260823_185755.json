@@ -1,0 +1,366 @@
+{
+  "experiment": {
+    "profile": "normal_day",
+    "start_time": 1787491675.9175754,
+    "end_time": 1787492275.9175754,
+    "duration_seconds": 600.0
+  },
+  "system_metrics": {
+    "cpu": {
+      "average": null,
+      "peak": null,
+      "peak_timestamp": null,
+      "series": [],
+      "available": false,
+      "mode": "bridge"
+    },
+    "memory": {
+      "average": null,
+      "peak": null,
+      "peak_timestamp": null,
+      "series": [],
+      "available": false,
+      "mode": "bridge"
+    },
+    "network": {
+      "device": "unknown",
+      "classification": "UNAVAILABLE",
+      "mode": "bridge",
+      "warning": "No network interfaces found in Prometheus node-exporter metrics.",
+      "total_rx_mb": null,
+      "total_tx_mb": null,
+      "peak_rx_MBps": null,
+      "peak_rx_timestamp": null,
+      "peak_tx_MBps": null,
+      "peak_tx_timestamp": null,
+      "rx_series": [],
+      "tx_series": [],
+      "available": false
+    }
+  },
+  "load_metrics": {
+    "locust": {
+      "summary": {
+        "total_requests": 41,
+        "successful_requests": 41,
+        "failed_requests": 0,
+        "error_rate_pct": 0.0,
+        "throughput_rps": 4.56,
+        "avg_response_time_ms": 263.65,
+        "min_response_time_ms": 7.24,
+        "max_response_time_ms": 1905.15,
+        "median_response_time_ms": 28.0,
+        "p50_latency_ms": 28.0,
+        "p90_latency_ms": 1900.0,
+        "p95_latency_ms": 1900.0,
+        "p99_latency_ms": 1900.0,
+        "p99_9_latency_ms": 1900.0
+      },
+      "endpoints": [
+        {
+          "method": "GET",
+          "name": "/api/data",
+          "request_count": 14,
+          "success_count": 14,
+          "failure_count": 0,
+          "error_rate_pct": 0.0,
+          "requests_per_s": 1.56,
+          "failures_per_s": 0.0,
+          "avg_response_time_ms": 76.34,
+          "min_response_time_ms": 41.62,
+          "max_response_time_ms": 139.06,
+          "median_response_time_ms": 72.0,
+          "p50_ms": 76.0,
+          "p90_ms": 110.0,
+          "p95_ms": 140.0,
+          "p99_ms": 140.0,
+          "p99_9_ms": 140.0
+        },
+        {
+          "method": "GET",
+          "name": "/health",
+          "request_count": 9,
+          "success_count": 9,
+          "failure_count": 0,
+          "error_rate_pct": 0.0,
+          "requests_per_s": 1.0,
+          "failures_per_s": 0.0,
+          "avg_response_time_ms": 10.55,
+          "min_response_time_ms": 7.24,
+          "max_response_time_ms": 18.52,
+          "median_response_time_ms": 9.0,
+          "p50_ms": 9.0,
+          "p90_ms": 19.0,
+          "p95_ms": 19.0,
+          "p99_ms": 19.0,
+          "p99_9_ms": 19.0
+        },
+        {
+          "method": "POST",
+          "name": "/login",
+          "request_count": 5,
+          "success_count": 5,
+          "failure_count": 0,
+          "error_rate_pct": 0.0,
+          "requests_per_s": 0.56,
+          "failures_per_s": 0.0,
+          "avg_response_time_ms": 1885.21,
+          "min_response_time_ms": 1875.88,
+          "max_response_time_ms": 1905.15,
+          "median_response_time_ms": 1900.0,
+          "p50_ms": 1900.0,
+          "p90_ms": 1900.0,
+          "p95_ms": 1900.0,
+          "p99_ms": 1900.0,
+          "p99_9_ms": 1900.0
+        },
+        {
+          "method": "GET",
+          "name": "/me",
+          "request_count": 12,
+          "success_count": 12,
+          "failure_count": 0,
+          "error_rate_pct": 0.0,
+          "requests_per_s": 1.34,
+          "failures_per_s": 0.0,
+          "avg_response_time_ms": 13.19,
+          "min_response_time_ms": 8.8,
+          "max_response_time_ms": 28.18,
+          "median_response_time_ms": 11.0,
+          "p50_ms": 11.0,
+          "p90_ms": 26.0,
+          "p95_ms": 28.0,
+          "p99_ms": 28.0,
+          "p99_9_ms": 28.0
+        },
+        {
+          "method": "POST",
+          "name": "/profile/update",
+          "request_count": 1,
+          "success_count": 1,
+          "failure_count": 0,
+          "error_rate_pct": 0.0,
+          "requests_per_s": 0.11,
+          "failures_per_s": 0.0,
+          "avg_response_time_ms": 61.69,
+          "min_response_time_ms": 61.69,
+          "max_response_time_ms": 61.69,
+          "median_response_time_ms": 61.69,
+          "p50_ms": 62.0,
+          "p90_ms": 62.0,
+          "p95_ms": 62.0,
+          "p99_ms": 62.0,
+          "p99_9_ms": 62.0
+        }
+      ],
+      "failures": [],
+      "history_series": [
+        {
+          "timestamp": 1787480076.0,
+          "user_count": 0,
+          "requests_per_s": 0.0,
+          "failures_per_s": 0.0,
+          "p95_ms": 0.0
+        },
+        {
+          "timestamp": 1787480077.0,
+          "user_count": 5,
+          "requests_per_s": 0.0,
+          "failures_per_s": 0.0,
+          "p95_ms": 0.0
+        },
+        {
+          "timestamp": 1787480078.0,
+          "user_count": 5,
+          "requests_per_s": 0.0,
+          "failures_per_s": 0.0,
+          "p95_ms": 1900.0
+        },
+        {
+          "timestamp": 1787480079.0,
+          "user_count": 5,
+          "requests_per_s": 0.0,
+          "failures_per_s": 0.0,
+          "p95_ms": 1900.0
+        },
+        {
+          "timestamp": 1787480080.0,
+          "user_count": 5,
+          "requests_per_s": 0.0,
+          "failures_per_s": 0.0,
+          "p95_ms": 1900.0
+        },
+        {
+          "timestamp": 1787480081.0,
+          "user_count": 5,
+          "requests_per_s": 4.0,
+          "failures_per_s": 0.0,
+          "p95_ms": 1900.0
+        }
+      ],
+      "discovered_files": {
+        "stats_file": "results_sample_run_stats.csv",
+        "history_file": "results_sample_run_stats_history.csv",
+        "failures_file": "results_sample_run_failures.csv"
+      }
+    }
+  },
+  "sla": {
+    "overall_status": "FAIL",
+    "passed_count": 1,
+    "failed_count": 1,
+    "unknown_count": 2,
+    "total_checks": 4,
+    "evaluations": {
+      "p95_latency": {
+        "metric_name": "P95 Response Time",
+        "measured_value": 1900.0,
+        "threshold": 500.0,
+        "unit": "ms",
+        "status": "FAIL",
+        "margin": -1400.0
+      },
+      "error_rate": {
+        "metric_name": "Error Rate",
+        "measured_value": 0.0,
+        "threshold": 1.0,
+        "unit": "%",
+        "status": "PASS",
+        "margin": 1.0
+      },
+      "cpu_utilization": {
+        "metric_name": "Peak CPU Utilization",
+        "measured_value": null,
+        "threshold": 80.0,
+        "unit": "%",
+        "status": "UNKNOWN",
+        "margin": null
+      },
+      "memory_utilization": {
+        "metric_name": "Peak Memory Utilization",
+        "measured_value": null,
+        "threshold": 90.0,
+        "unit": "%",
+        "status": "UNKNOWN",
+        "margin": null
+      }
+    },
+    "violations": [
+      "P95 Response Time: measured 1900.0 ms exceeds limit 500.0 ms",
+      "Peak CPU Utilization: metric unavailable; cannot evaluate against limit 80.0 %",
+      "Peak Memory Utilization: metric unavailable; cannot evaluate against limit 90.0 %"
+    ],
+    "thresholds": {
+      "p95_latency_ms": 500.0,
+      "error_rate_pct": 1.0,
+      "cpu_pct": 80.0,
+      "memory_pct": 90.0
+    }
+  },
+  "crashes": {
+    "crash_detected": false,
+    "crash_count": 0,
+    "crashes": [],
+    "searched_directory": "logs",
+    "total_files_found": 0
+  },
+  "bottleneck_analysis": {
+    "primary_bottleneck": "Application / Endpoint Latency",
+    "classification": "PERFORMANCE_DEGRADATION",
+    "confidence": "LOW_SAMPLE_SIZE",
+    "suspected_resources": [],
+    "evidence": [
+      "Low request volume (41 requests); statistical latency metrics are tentative.",
+      "P95 response time (1900.0 ms) violated SLA target (500.0 ms).",
+      "Endpoint bottleneck identified on 'POST /login' with P95 of 1900.0 ms."
+    ]
+  },
+  "failure_analysis": {
+    "failure_type": "SLA_NON_COMPLIANCE",
+    "severity": "MODERATE",
+    "failure_count": 1,
+    "evidence": [
+      "SLA Target Violated: P95 Response Time: measured 1900.0 ms exceeds limit 500.0 ms",
+      "SLA Target Violated: Peak CPU Utilization: metric unavailable; cannot evaluate against limit 80.0 %",
+      "SLA Target Violated: Peak Memory Utilization: metric unavailable; cannot evaluate against limit 90.0 %"
+    ]
+  },
+  "timeline": [
+    {
+      "timestamp": 1787480076.0,
+      "iso_time": "2026-08-23T15:44:36",
+      "event_type": "LOAD_STARTED",
+      "source": "LOCUST",
+      "category": "OBSERVED",
+      "severity": "INFO",
+      "description": "Workload generation began with 0 users",
+      "details": {
+        "users": 0
+      }
+    },
+    {
+      "timestamp": 1787480077.0,
+      "iso_time": "2026-08-23T15:44:37",
+      "event_type": "LOCUST_PEAK_USERS",
+      "source": "LOCUST",
+      "category": "OBSERVED",
+      "severity": "INFO",
+      "description": "Locust concurrency reached peak of 5 active users",
+      "details": {
+        "users": 5
+      }
+    },
+    {
+      "timestamp": 1787480078.0,
+      "iso_time": "2026-08-23T15:44:38",
+      "event_type": "SLA_BREACH_DETECTED",
+      "source": "SLA_ENGINE",
+      "category": "INFERRED",
+      "severity": "CRITICAL",
+      "description": "SLA Target Breached: P95 Response Time was 1900.0 ms (Limit: 500.0 ms)",
+      "details": {
+        "metric_name": "P95 Response Time",
+        "measured_value": 1900.0,
+        "threshold": 500.0,
+        "unit": "ms",
+        "status": "FAIL",
+        "margin": -1400.0,
+        "timestamp_source": "FIRST_HISTORY_BREACH"
+      }
+    },
+    {
+      "timestamp": 1787480081.0,
+      "iso_time": "2026-08-23T15:44:41",
+      "event_type": "LOCUST_PEAK_RPS",
+      "source": "LOCUST",
+      "category": "OBSERVED",
+      "severity": "INFO",
+      "description": "Locust throughput reached peak of 4.0 req/s",
+      "details": {
+        "rps": 4.0,
+        "users": 5
+      }
+    },
+    {
+      "timestamp": 1787491675.9175754,
+      "iso_time": "2026-08-23T18:57:55.917575",
+      "event_type": "EXPERIMENT_START",
+      "source": "RUNNER",
+      "category": "OBSERVED",
+      "severity": "INFO",
+      "description": "Experiment started at T1 (1787491675.9175754)",
+      "details": {}
+    },
+    {
+      "timestamp": 1787492275.9175754,
+      "iso_time": "2026-08-23T19:07:55.917575",
+      "event_type": "EXPERIMENT_END",
+      "source": "RUNNER",
+      "category": "OBSERVED",
+      "severity": "INFO",
+      "description": "Experiment completed at T2 (1787492275.9175754)",
+      "details": {}
+    }
+  ],
+  "conclusion": "The experiment executed 41 requests with overall SLA status 'FAIL' (1/4 checks satisfied). No container crashes or service interruptions were detected by the watchdog. Primary observed degradation candidate identified as 'Application / Endpoint Latency' (tentative due to low request volume)."
+}
