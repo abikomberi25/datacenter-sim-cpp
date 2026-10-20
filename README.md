@@ -72,8 +72,8 @@ This framework reproduces that realism around a login/authentication system — 
            │
      ┌─────▼──────────────┐
      │  analysis/          │
-     │  analyse.py         │  ← Pandas: bottleneck detection,
-     │  → PDF report       │    SLA verdict, latency charts
+     │  run_analysis.py    │  ← Analysis engine, bottleneck detection,
+     │  → PDF, HTML, JSON  │    SLA verdict, timeline, charts
      └─────────────────────┘
 ```
 
@@ -88,7 +88,7 @@ This framework reproduces that realism around a login/authentication system — 
 | Load generation | Locust (distributed master/worker) |
 | Infrastructure | Docker, Docker Compose |
 | Monitoring | Prometheus, Node Exporter, Grafana |
-| Analysis and reporting | Pandas, Matplotlib, Seaborn, WeasyPrint |
+| Analysis and reporting | Pandas, Matplotlib, Seaborn |
 
 All tools are 100% open source — zero licensing cost.
 
@@ -147,7 +147,7 @@ datacenter-sim/
 | Member 3 | Simulation developer | `simulation/` — Locust users, loadshapes, run_test.py, YAML profiles |
 | Member 4 | Infrastructure | `infra/` — Docker Compose, Prometheus config, crash watchdog |
 | Member 5 | Monitoring | `monitoring/` — Grafana dashboards, Node Exporter, alerts |
-| Member 6 | Analysis and reporting | `analysis/` — analyse.py, PDF report, SLA verdict, charts |
+| Member 6 | Analysis and reporting | `analysis/` — run_analysis.py, analyse.py, report_generator.py (PDF/HTML/JSON, SLA verdicts, charts) |
 
 ---
 
@@ -331,21 +331,100 @@ python simulation/run_test.py --profile workload_profiles/flash_event.yaml
 
 ---
 
-## Generating the report
+## Generating the report (Member 6)
 
-After one or both test runs complete:
+The analysis and diagnostics subsystem processes Locust load generation results, correlated Prometheus system metrics, and container crash watchdog events to produce SLA evaluations, root-cause bottleneck diagnoses, and cross-format reports.
+
+### Entry point
 
 ```bash
-python analysis/analyse.py --run results/latest.csv
+python -m analysis.run_analysis --profile <profile_name> [options]
 ```
 
-Output is saved to `analysis/reports/` as a PDF containing:
+### Supported CLI arguments
 
-- Latency and throughput charts over time
-- Per-phase breakdown (ramp-up, peak, steady-state, cooldown)
-- Bottleneck identification (CPU, memory, thread pool, DB connections)
-- SLA pass/fail verdict per metric
-- Crash log summary if any errors were detected
+| Argument | Description | Default |
+|---|---|---|
+| `--profile` | Workload profile name (e.g. `normal_day`, `flash_event`) | `normal_day` |
+| `--csv` | Custom Locust results prefix or path (e.g. `results_normal_day`) | `results_<profile>` |
+| `--start-time` | Experiment start timestamp (Unix epoch seconds) | Derived from Locust history |
+| `--end-time` | Experiment end timestamp (Unix epoch seconds) | Derived from Locust history |
+| `--live` | Fall back to current sliding window when history timestamps are absent | `False` |
+| `--config` | Path to analysis configuration YAML file | `analysis/config.yaml` |
+| `--output-dir` | Directory to save generated reports and plots | `reports` |
+| `--json-out` | Optional custom filename for exported JSON analysis report | None (auto-generated) |
+
+### Common run examples
+
+```bash
+# Analyze historical normal_day run (auto-derives [start, end] window from history CSV)
+python -m analysis.run_analysis --csv results_normal_day --profile normal_day
+
+# Analyze historical flash_event run with custom output directory
+python -m analysis.run_analysis --csv results_flash_event --profile flash_event --output-dir reports_custom
+
+# Analyze a live experiment with explicit epoch window
+python -m analysis.run_analysis --profile normal_day --start-time 1787489781.0 --end-time 1787490199.0
+```
+
+### Input requirements & deterministic run selection
+
+The Locust parser expects companion CSV files sharing a common run prefix:
+- `<prefix>_stats.csv` (Aggregated and per-endpoint HTTP metrics)
+- `<prefix>_stats_history.csv` (Time-series RPS, user counts, and latency percentiles)
+- `<prefix>_failures.csv` (HTTP failure details and error messages)
+
+If multiple ambiguous runs are detected within a directory and no prefix is specified, the parser raises an `AmbiguousRunError` with an actionable error message requiring an explicit `--csv` argument.
+
+### Experiment time-window alignment
+
+The analysis engine aligns Prometheus metrics with the actual Locust execution window:
+1. **Historical data (Default):** When `--start-time` or `--end-time` are omitted, boundaries `[min_timestamp, max_timestamp]` are automatically derived from the Locust history CSV.
+2. **Explicit window:** Users can supply precise `--start-time` and `--end-time` in Unix epoch seconds.
+3. **Live experiments:** Passing `--live` permits sliding-window fallback to the last 10 minutes from `time.time()` when history timestamps are absent.
+
+### SLA verdicts and observability diagnostics
+
+The analysis engine distinguishes performance SLA compliance from telemetry completeness:
+
+- **`PASS`:** All evaluated checks met defined thresholds (p95 latency <= 500 ms, error rate <= 1.0%, peak CPU <= 80%, peak memory <= 90%).
+- **`FAIL`:** One or more evaluated checks violated SLA thresholds.
+- **`INCOMPLETE`:** Required telemetry was missing or unevaluated (e.g., offline re-analysis without Prometheus), while evaluated checks satisfied thresholds. Missing metrics are preserved in `missing_evidence`.
+
+#### Diagnostic classification hierarchy
+
+- **Observability Gaps:** If Prometheus is unreachable or telemetry is absent, the engine records `classification: INSUFFICIENT_EVIDENCE` with primary bottleneck `None` and `confidence: LOW`. It never invents an application bottleneck or falsely declares health.
+- **Resource Saturation:** High resource utilization (CPU > 80%) without latency breaches is classified as `RESOURCE_SATURATION` rather than `SYSTEM_HEALTHY`.
+- **Infrastructure Scope:** Node Exporter reports container/host environment metrics depending on Docker Compose network configuration (`bridge` vs `host`).
+
+### Generated report artifacts
+
+Each analysis run creates a timestamped folder `<output-dir>/<profile>/<YYYYMMDD_HHMMSS>/` containing:
+
+1. **`report_<profile>_<timestamp>.pdf`:** Multi-page executive PDF report (Matplotlib `PdfPages`) with overflow continuation pagination for large endpoint tables and event timelines.
+2. **`report_<profile>_<timestamp>.html`:** Interactive HTML report with SLA badges and embedded performance summaries.
+3. **`analysis_<profile>_<timestamp>.json`:** Canonical structured JSON artifact containing complete experiment metadata, SLA evaluations, load metrics, timeline, and provenance.
+4. **`<profile>_<timestamp>_locust_performance.png`:** Concurrency, RPS, and P95 latency charts over time.
+5. **`<profile>_<timestamp>_system_metrics.png`:** CPU, memory, and network throughput charts with defensive placeholder notices when telemetry is absent.
+
+---
+
+## Testing & Verification
+
+Automated test suites are managed with `pytest`:
+
+```bash
+# Run Member 6 analysis and diagnostics test suite (100% passing)
+pytest tests/
+
+# Run the complete workspace test suite
+pytest
+```
+
+### Workspace test status
+
+- **Member 6 tests (`tests/`):** 51 passed, 0 failed. Covers baseline fixtures, input integrity, time alignment, SLA evaluation boundaries, bottleneck hierarchy, table pagination, chart placeholders, and Matplotlib resource cleanup.
+- **Full workspace:** 69 passed, 3 pre-existing failures in `app/tests/test_endpoints.py`. These 3 failures (`TestMe::test_me_without_token`, `TestProfileUpdate::test_update_profile_no_token`, `TestApiData::test_api_data_no_token`) are pre-existing Member 2 endpoint authorization assertion mismatches where FastAPI's HTTPBearer returns `401 Unauthorized` instead of the test's expected `403 Forbidden`.
 
 ---
 

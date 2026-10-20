@@ -6,6 +6,14 @@ EXCLUDED_PREFIXES = ("lo", "docker", "br-", "veth", "virbr")
 PHYSICAL_PREFIXES = ("eth", "en", "enp", "ens", "wlan", "wlp")
 
 class NetworkMonitor:
+    """
+    Monitors network throughput and cumulative volume using Prometheus node-exporter metrics.
+    All throughput rates and cumulative volumes use standard binary IEC units:
+    - Rates: Mebibytes per second (MiB/s = 1,048,576 bytes/sec).
+    - Cumulative volume: Mebibytes (MiB = 1,048,576 bytes).
+    Legacy dictionary keys (*_mb, *_MBps) are preserved as exact binary aliases for backwards compatibility.
+    """
+
     def __init__(self, prom_client, mode="bridge", fallback=True, rate_window_seconds=15, sampling_interval_seconds=5):
         self.prom = prom_client
         self.mode = mode.lower()
@@ -55,12 +63,19 @@ class NetworkMonitor:
                 "classification": "UNAVAILABLE",
                 "mode": self.mode,
                 "warning": str(e),
+                "unit_total": "MiB",
+                "unit_rate": "MiB/s",
+                "total_rx_mib": None,
+                "total_tx_mib": None,
+                "peak_rx_mib_s": None,
+                "peak_rx_timestamp": None,
+                "peak_tx_mib_s": None,
+                "peak_tx_timestamp": None,
+                # Backward-compatible aliases
                 "total_rx_mb": None,
                 "total_tx_mb": None,
                 "peak_rx_MBps": None,
-                "peak_rx_timestamp": None,
                 "peak_tx_MBps": None,
-                "peak_tx_timestamp": None,
                 "rx_series": [],
                 "tx_series": [],
                 "available": False,
@@ -76,6 +91,7 @@ class NetworkMonitor:
         tx_start_val = float(tx_start_res[0]["value"][1]) if tx_start_res and "value" in tx_start_res[0] else None
 
         window = f"{self.rate_window_seconds}s"
+        # 1 MiB = 1,048,576 bytes
         rx_rate_query = f'rate(node_network_receive_bytes_total{{device="{device}"}}[{window}]) / 1048576'
         tx_rate_query = f'rate(node_network_transmit_bytes_total{{device="{device}"}}[{window}]) / 1048576'
 
@@ -99,12 +115,19 @@ class NetworkMonitor:
                 "classification": classification,
                 "mode": self.mode,
                 "warning": warning_msg,
+                "unit_total": "MiB",
+                "unit_rate": "MiB/s",
+                "total_rx_mib": None,
+                "total_tx_mib": None,
+                "peak_rx_mib_s": None,
+                "peak_rx_timestamp": None,
+                "peak_tx_mib_s": None,
+                "peak_tx_timestamp": None,
+                # Backward-compatible aliases
                 "total_rx_mb": None,
                 "total_tx_mb": None,
                 "peak_rx_MBps": None,
-                "peak_rx_timestamp": None,
                 "peak_tx_MBps": None,
-                "peak_tx_timestamp": None,
                 "rx_series": [],
                 "tx_series": [],
                 "available": False,
@@ -119,28 +142,40 @@ class NetworkMonitor:
         rx_end_val = float(rx_end_res[0]["value"][1]) if rx_end_res and "value" in rx_end_res[0] else None
         tx_end_val = float(tx_end_res[0]["value"][1]) if tx_end_res and "value" in tx_end_res[0] else None
 
-        total_rx_mb = (
+        total_rx_mib = (
             max(0.0, (rx_end_val - rx_start_val) / 1048576.0)
             if rx_start_val is not None and rx_end_val is not None
             else None
         )
-        total_tx_mb = (
+        total_tx_mib = (
             max(0.0, (tx_end_val - tx_start_val) / 1048576.0)
             if tx_start_val is not None and tx_end_val is not None
             else None
         )
+
+        tot_rx_val = round(total_rx_mib, 2) if total_rx_mib is not None else None
+        tot_tx_val = round(total_tx_mib, 2) if total_tx_mib is not None else None
+        pk_rx_val = round(peak_rx["value"], 2) if peak_rx["value"] is not None else None
+        pk_tx_val = round(peak_tx["value"], 2) if peak_tx["value"] is not None else None
 
         return {
             "device": device,
             "classification": classification,
             "mode": self.mode,
             "warning": warning_msg,
-            "total_rx_mb": round(total_rx_mb, 2) if total_rx_mb is not None else None,
-            "total_tx_mb": round(total_tx_mb, 2) if total_tx_mb is not None else None,
-            "peak_rx_MBps": round(peak_rx["value"], 2) if peak_rx["value"] is not None else None,
+            "unit_total": "MiB",
+            "unit_rate": "MiB/s",
+            "total_rx_mib": tot_rx_val,
+            "total_tx_mib": tot_tx_val,
+            "peak_rx_mib_s": pk_rx_val,
             "peak_rx_timestamp": peak_rx["timestamp"],
-            "peak_tx_MBps": round(peak_tx["value"], 2) if peak_tx["value"] is not None else None,
+            "peak_tx_mib_s": pk_tx_val,
             "peak_tx_timestamp": peak_tx["timestamp"],
+            # Backward-compatible aliases
+            "total_rx_mb": tot_rx_val,
+            "total_tx_mb": tot_tx_val,
+            "peak_rx_MBps": pk_rx_val,
+            "peak_tx_MBps": pk_tx_val,
             "rx_series": rx_series,
             "tx_series": tx_series,
             "available": True,

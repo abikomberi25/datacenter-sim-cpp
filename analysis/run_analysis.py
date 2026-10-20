@@ -62,22 +62,71 @@ def main():
         default=None,
         help="Optional custom filename to export JSON analysis report"
     )
-
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        default=False,
+        help="Permit fallback to current live sliding window when history timestamps are unavailable"
+    )
     args = parser.parse_args()
 
-    end_time = args.end_time or time.time()
-    start_time = args.start_time or (end_time - 600.0) # default 10m window
+    import math
+    from analysis.locust_results import LocustResultParser
+
     csv_target = args.csv or f"results_{args.profile}"
+    start_time = args.start_time
+    end_time = args.end_time
+    time_window_source = "EXPLICIT_CLI"
+
+    if start_time is not None and not math.isfinite(start_time):
+        raise ValueError(f"Invalid --start-time: {start_time}")
+    if end_time is not None and not math.isfinite(end_time):
+        raise ValueError(f"Invalid --end-time: {end_time}")
+    if start_time is not None and end_time is not None and end_time <= start_time:
+        raise ValueError(f"Invalid experiment window: --end-time ({end_time}) must be strictly greater than --start-time ({start_time}).")
+
+    # If timestamps are missing, attempt to derive them from Locust history data
+    if start_time is None or end_time is None:
+        try:
+            probe = LocustResultParser(csv_target)
+            min_ts, max_ts = probe.get_history_time_bounds()
+            if min_ts is not None and max_ts is not None and max_ts > min_ts:
+                if start_time is None:
+                    start_time = min_ts
+                if end_time is None:
+                    end_time = max_ts
+                time_window_source = "DERIVED_FROM_LOCUST_HISTORY"
+                logger.info(f"Derived experiment window [{start_time} -> {end_time}] from Locust history data.")
+        except Exception as e:
+            logger.debug(f"Could not derive time bounds from Locust history: {e}")
+
+    # Fallback only when explicitly permitted via --live or when end_time was supplied
+    if start_time is None or end_time is None:
+        if args.live:
+            end_time = end_time or time.time()
+            start_time = start_time or (end_time - 600.0)
+            time_window_source = "FALLBACK_LIVE_SLIDING_WINDOW"
+            logger.warning(f"Using fallback live sliding window [{start_time} -> {end_time}].")
+        else:
+            raise ValueError(
+                f"Cannot establish experiment window for '{csv_target}': "
+                "no Locust history timestamps found and explicit --start-time / --end-time not supplied. "
+                "Please specify --start-time and --end-time, or pass --live for live monitoring."
+            )
+
+    if end_time <= start_time:
+        raise ValueError(f"Invalid experiment window: end_time ({end_time}) must be strictly greater than start_time ({start_time}).")
 
     logger.info("Initializing Analysis Engine...")
     engine = AnalysisEngine(config_path=args.config)
 
-    logger.info(f"Running analysis for profile '{args.profile}' over [{start_time} -> {end_time}]")
+    logger.info(f"Running analysis for profile '{args.profile}' over [{start_time} -> {end_time}] (Source: {time_window_source})")
     analysis_result = engine.analyze(
         start_time=start_time,
         end_time=end_time,
         locust_target=csv_target,
         profile_name=args.profile,
+        time_window_source=time_window_source,
     )
 
     # Export Structured JSON Report & Visualizations into Profile Subdirectory

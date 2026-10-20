@@ -20,7 +20,7 @@ class AnalysisEngine:
     - Ingests measurements across Prometheus, Locust, and Watchdog without inventing data.
     - Evaluates SLA compliance.
     - Performs evidence-based Bottleneck Detection with strict classification:
-      (SLA_VIOLATION vs RESOURCE_SATURATION vs PERFORMANCE_DEGRADATION vs CONFIRMED_BOTTLENECK vs POSSIBLE_BOTTLENECK vs INSUFFICIENT_EVIDENCE).
+      (RESOURCE_SATURATION vs PERFORMANCE_DEGRADATION vs CONFIRMED_BOTTLENECK vs CORRELATED_BOTTLENECK vs INSUFFICIENT_EVIDENCE vs SYSTEM_HEALTHY).
     - Synthesizes multi-factor Failure Analysis.
     - Constructs the chronological Event Timeline.
     - Produces a unified structured analysis output dictionary.
@@ -38,7 +38,12 @@ class AnalysisEngine:
         net_fallback = net_cfg.get("fallback_to_container", True)
 
         self.prom_client = PrometheusClient(prom_url)
-        self.sys_monitor = SystemMonitor(self.prom_client, mode=net_mode, sampling_interval_seconds=sampling_sec)
+        self.sys_monitor = SystemMonitor(
+            self.prom_client,
+            mode=net_mode,
+            sampling_interval_seconds=sampling_sec,
+            rate_window_seconds=rate_window_sec,
+        )
         self.net_monitor = NetworkMonitor(
             self.prom_client,
             mode=net_mode,
@@ -63,10 +68,17 @@ class AnalysisEngine:
         end_time: float,
         locust_target: str,
         profile_name: Optional[str] = None,
+        time_window_source: str = "EXPLICIT_CLI",
     ) -> Dict[str, Any]:
         """
         Executes the unified analysis over the experiment time window [start_time, end_time].
         """
+        import math
+        if not math.isfinite(start_time) or not math.isfinite(end_time):
+            raise ValueError(f"Experiment timestamps must be finite numbers: start_time={start_time}, end_time={end_time}")
+        if end_time < start_time:
+            raise ValueError(f"end_time ({end_time}) must be greater than or equal to start_time ({start_time})")
+
         duration = max(0.0, round(end_time - start_time, 2))
 
         # 1. Capture Prometheus System & Network Metrics
@@ -74,9 +86,9 @@ class AnalysisEngine:
         memory_metrics = self.sys_monitor.get_memory_utilization(start_time, end_time)
         network_metrics = self.net_monitor.get_network_metrics(start_time, end_time)
 
-        # 2. Parse Locust Performance Results
+        # 2. Parse Locust Performance Results with Interval Filtering
         locust_parser = LocustResultParser(locust_target)
-        locust_data = locust_parser.parse()
+        locust_data = locust_parser.parse(start_time=start_time, end_time=end_time)
         locust_summary = locust_data.get("summary", {})
 
         # 3. Read Watchdog Crash Logs
@@ -129,12 +141,30 @@ class AnalysisEngine:
             locust_summary=locust_summary,
         )
 
+        # Determine whether Prometheus monitoring overlapped with experiment window
+        monitoring_overlap = bool(
+            (cpu_metrics.get("series") and len(cpu_metrics["series"]) > 0)
+            or (memory_metrics.get("series") and len(memory_metrics["series"]) > 0)
+        )
+        is_historical = end_time < (time.time() - 3600)
+
         return {
             "experiment": {
                 "profile": profile_name or "unknown",
                 "start_time": start_time,
                 "end_time": end_time,
                 "duration_seconds": duration,
+                "time_window_source": time_window_source,
+                "is_historical": is_historical,
+            },
+            "provenance": {
+                "locust_target": locust_target,
+                "discovered_files": locust_data.get("discovered_files", {}),
+                "history_provenance": locust_data.get("history_provenance", {}),
+                "time_window_source": time_window_source,
+                "time_window_type": "HISTORICAL" if is_historical else "RECENT",
+                "prometheus_connected": bool(cpu_metrics.get("available", False) or memory_metrics.get("available", False)),
+                "monitoring_data_overlap": monitoring_overlap,
             },
             "system_metrics": {
                 "cpu": cpu_metrics,
@@ -163,24 +193,27 @@ class AnalysisEngine:
     ) -> Dict[str, Any]:
         """
         Evidence-based bottleneck detection distinguishing:
-        - Resource Saturation (CPU > 90%, Memory > 90%)
-        - SLA Violations (CPU/P95 breaches)
-        - Endpoint Latency Disparities
-        - Statistical Confidence based on sample size
+        - Resource Saturation / SLA Violation (CPU/Memory thresholds breached)
+        - Confirmed Bottlenecks (Resource saturation AND latency breach)
+        - Performance Degradation (Endpoint latency breach without resource saturation)
+        - Evidence Gaps / Missing Telemetry (Undetermined, not classified as healthy)
+        - System Healthy (Sufficient evidence demonstrating all parameters within limits)
         """
         evidence: List[str] = []
         suspects: List[str] = []
-        classification = "NO_BOTTLENECK_DETECTED"
-        primary = "None"
         confidence = "HIGH"
 
         # Check sample size robustness
         total_reqs = locust_summary.get("total_requests", 0)
+        is_empty = bool(locust_summary.get("is_empty", False))
         if total_reqs < 100:
             confidence = "LOW_SAMPLE_SIZE"
-            evidence.append(
-                f"Low request volume ({total_reqs} requests); statistical latency metrics are tentative."
-            )
+            if total_reqs == 0 or is_empty:
+                evidence.append("No valid workload requests were executed or captured.")
+            else:
+                evidence.append(
+                    f"Low request volume ({total_reqs} requests); statistical latency metrics are tentative."
+                )
 
         cpu_peak = cpu_metrics.get("peak")
         mem_peak = memory_metrics.get("peak")
@@ -208,11 +241,13 @@ class AnalysisEngine:
                 evidence.append(f"Memory SLA breach: peak {mem_peak}% exceeded threshold {mem_sla}%.")
 
         # 3. Latency Evaluation & Endpoint Disparity
+        has_latency_breach = False
         if p95_latency is not None and p95_latency > p95_sla:
+            has_latency_breach = True
             evidence.append(f"P95 response time ({p95_latency} ms) violated SLA target ({p95_sla} ms).")
             # Identify slow endpoints
             slow_endpoints = [
-                ep for ep in locust_endpoints if ep.get("p95_ms", 0) > p95_sla
+                ep for ep in locust_endpoints if ep.get("p95_ms") is not None and ep.get("p95_ms", 0) > p95_sla
             ]
             if slow_endpoints:
                 slowest = max(slow_endpoints, key=lambda ep: ep.get("p95_ms", 0))
@@ -220,25 +255,43 @@ class AnalysisEngine:
                     f"Endpoint bottleneck identified on '{slowest['method']} {slowest['name']}' with P95 of {slowest['p95_ms']} ms."
                 )
 
-        # 4. Synthesize Primary Bottleneck and Classification
-        if "CPU" in suspects and p95_latency and p95_latency > p95_sla:
+        # Check Prometheus monitoring availability
+        monitoring_available = bool(cpu_metrics.get("available", False) or memory_metrics.get("available", False))
+        if not monitoring_available:
+            evidence.append("Prometheus metrics unavailable to evaluate hardware resource boundaries.")
+
+        # 4. Synthesize Primary Bottleneck and Classification (DEF-005 & DEF-006)
+        if "CPU" in suspects and has_latency_breach:
             if cpu_peak and cpu_peak >= 90.0:
                 classification = "CONFIRMED_BOTTLENECK"
                 primary = "CPU Saturation & Application Concurrency"
             else:
                 classification = "CORRELATED_BOTTLENECK"
                 primary = "CPU / Application Processing"
-        elif "MEMORY" in suspects:
-            classification = "CONFIRMED_BOTTLENECK" if mem_peak >= 90.0 else "POSSIBLE_BOTTLENECK"
-            primary = "Memory Pressure"
-        elif p95_latency and p95_latency > p95_sla:
+        elif "MEMORY" in suspects and has_latency_breach:
+            classification = "CONFIRMED_BOTTLENECK" if (mem_peak and mem_peak >= 90.0) else "CORRELATED_BOTTLENECK"
+            primary = "Memory Pressure & Latency Degradation"
+        elif has_latency_breach:
             classification = "PERFORMANCE_DEGRADATION"
             primary = "Application / Endpoint Latency"
-        elif cpu_metrics.get("available") is False:
+        elif "CPU" in suspects and "MEMORY" in suspects:
+            classification = "RESOURCE_SATURATION"
+            primary = "CPU Utilization & Memory Pressure"
+        elif "CPU" in suspects:
+            classification = "RESOURCE_SATURATION"
+            primary = "CPU Utilization"
+        elif "MEMORY" in suspects:
+            classification = "RESOURCE_SATURATION"
+            primary = "Memory Pressure"
+        elif not monitoring_available:
+            # DEF-006: Missing monitoring data is an evidence gap, not an application bottleneck!
             classification = "INSUFFICIENT_EVIDENCE"
-            primary = "Monitoring Unavailable"
+            primary = "None"
             confidence = "LOW"
-            evidence.append("Prometheus metrics unavailable to confirm hardware bottlenecks.")
+        elif total_reqs == 0 or is_empty:
+            classification = "INSUFFICIENT_EVIDENCE"
+            primary = "None"
+            confidence = "LOW"
         else:
             classification = "SYSTEM_HEALTHY"
             primary = "None"
@@ -302,11 +355,18 @@ class AnalysisEngine:
             for v in sla_report.get("violations", []):
                 evidence.append(f"SLA Target Violated: {v}")
 
+        # Record missing SLA metrics / evidence gaps
+        for m in sla_report.get("missing_evidence", []):
+            evidence.append(f"SLA Telemetry Incomplete: {m}")
+
         if not failure_types:
             failure_type_str = "NO_FAILURES"
-            evidence.append("No system crashes, HTTP errors, or SLA violations detected.")
+            if sla_report.get("overall_status") == "INCOMPLETE":
+                evidence.append("No system crashes or SLA failures detected, but monitoring telemetry was incomplete.")
+            else:
+                evidence.append("No system crashes, HTTP errors, or SLA violations detected.")
         else:
-            failure_type_str = ", ".join(set(failure_types))
+            failure_type_str = ", ".join(sorted(set(failure_types)))
 
         return {
             "failure_type": failure_type_str,
@@ -342,12 +402,18 @@ class AnalysisEngine:
             narrative.append("No container crashes or service interruptions were detected by the watchdog.")
 
         if overall_sla == "FAIL":
-            if confidence == "LOW_SAMPLE_SIZE":
-                narrative.append(f"Primary observed degradation candidate identified as '{primary_bn}' (tentative due to low request volume).")
+            if primary_bn and primary_bn != "None":
+                if confidence == "LOW_SAMPLE_SIZE":
+                    narrative.append(f"Primary observed degradation candidate identified as '{primary_bn}' (tentative due to low request volume).")
+                else:
+                    narrative.append(f"Primary bottleneck assessed as '{primary_bn}' (Confidence: {confidence}).")
             else:
-                narrative.append(f"Primary bottleneck assessed as '{primary_bn}' (Confidence: {confidence}).")
+                violations = sla_report.get("violations", [])
+                v_str = "; ".join(violations) if violations else "SLA violation detected"
+                narrative.append(f"SLA non-compliance recorded: {v_str}.")
+        elif overall_sla == "INCOMPLETE":
+            narrative.append(f"The analysis concluded with status 'INCOMPLETE' due to missing or insufficient performance telemetry ({passed}/{total} checks evaluated). Full operational compliance could not be verified.")
         else:
             narrative.append("The system operated within all performance, reliability, and resource boundaries.")
 
         return " ".join(narrative)
-
